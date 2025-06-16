@@ -164,6 +164,8 @@ DumpImage::DumpImage(std::string filename, DataBlock *data, bool enableDomainDec
       dump.ReadSerial(fileHdl, ndim, nx, type, &this->geometry);
     } else if(fieldName.compare("centralMass")==0) {
       dump.ReadSerial(fileHdl, ndim, nx, type, &this->centralMass);
+    }  else if(fieldName.compare("centralMoment")==0) {
+      dump.ReadSerial(fileHdl, ndim, nx, type, &this->centralMoment);
     } else {
       int size=sizeof(double);
       for(int dim =0 ; dim<ndim ; dim++) {

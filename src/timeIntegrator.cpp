@@ -39,6 +39,7 @@ TimeIntegrator::TimeIntegrator(Input & input, DataBlock & data) {
     cfl=input.Get<real>("TimeIntegrator","CFL",0);
     cflMaxVar = input.GetOrSet<real>("TimeIntegrator","CFL_max_var",0, 1.1);
     data.dt = input.GetOrSet<real>("TimeIntegrator","first_dt",0, 1.0e-10);
+    data.dt_hydro = input.GetOrSet<real>("TimeIntegrator","first_dt",0, 1.0e-10);
   }
 
   this->cyclePeriod = input.GetOrSet<int>("Output","log",0, 100);
@@ -247,6 +248,7 @@ void TimeIntegrator::Cycle(DataBlock &data) {
   // Do one cycle
   IdefixArray3D<real> InvDt = data.hydro->InvDt;
   real newdt;
+  real newdt_hydro;
 
   idfx::pushRegion("TimeIntegrator::Cycle");
 
@@ -313,6 +315,7 @@ void TimeIntegrator::Cycle(DataBlock &data) {
     if(stage==0) {
       if(!haveFixedDt) {
         newdt = cfl*data.ComputeTimestep();
+        newdt_hydro = cfl*data.ComputeTimestep_hydro();
         #ifdef WITH_MPI
           if(idfx::psize>1) {
             MPI_SAFE_CALL(MPI_Iallreduce(MPI_IN_PLACE, &newdt, 1, realMPI, MPI_MIN, MPI_COMM_WORLD,
@@ -397,6 +400,7 @@ void TimeIntegrator::Cycle(DataBlock &data) {
         IDEFIX_ERROR(msg);
       }
       data.dt=newdt;
+      data.dt_hydro=newdt_hydro;
     }
     if(data.dt < 1e-15) {
       std::stringstream msg;

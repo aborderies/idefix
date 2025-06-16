@@ -218,6 +218,7 @@ struct Fluid_CalcRHSFunctor {
     dx   = hydro->data->dx[dir];
     dx2  = hydro->data->dx[JDIR];
     invDt = hydro->InvDt;
+    invDt_hydro = hydro->InvDt_hydro;
     cMax = hydro->cMax;
     dMax = hydro->dMax;
     this->dt = dt;
@@ -285,6 +286,7 @@ struct Fluid_CalcRHSFunctor {
   IdefixArray1D<real> dx;
   IdefixArray1D<real> dx2;
   IdefixArray3D<real> invDt;
+  IdefixArray3D<real> invDt_hydro;
   IdefixArray3D<real> cMax;
   IdefixArray3D<real> dMax;
   IdefixArray4D<real> viscSrc;
@@ -523,6 +525,8 @@ struct Fluid_CalcRHSFunctor {
     // Compute dt from max signal speed
     invDt(k,j,i) = invDt(k,j,i) + HALF_F*(cMax(k+koffset,j+joffset,i+ioffset)
                   + cMax(k,j,i)) / (dl);
+    invDt_hydro(k,j,i) = invDt_hydro(k,j,i) + HALF_F*(cMax(k+koffset,j+joffset,i+ioffset)
+              + cMax(k,j,i)) / (dl);
 
     if(haveParabolicTerms) {
       invDt(k,j,i) = invDt(k,j,i) + TWO_F* FMAX(dMax(k+koffset,j+joffset,i+ioffset),
