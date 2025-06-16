@@ -41,12 +41,11 @@ class Axis {
                                           // cell in theta direction (like Athena)
   void ExchangeMPI(int side);           // Function has to be public for GPU, but its technically
                                         // a private function
-
+  bool axisRight = false;
+  bool axisLeft = false;
 
  private:
   bool isTwoPi = false;
-  bool axisRight = false;
-  bool axisLeft = false;
   bool needMPIExchange = false;
   bool haveMHD = false;
   int nVar;

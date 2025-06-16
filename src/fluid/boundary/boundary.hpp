@@ -406,6 +406,9 @@ void Boundary<Phys>::ReconstructNormalField(int dir) {
 
   const bool reconstructLeft  = !(data->lbound[dir]==periodic || data->lbound[dir]==internal);
   const bool reconstructRight = !(data->rbound[dir]==periodic || data->rbound[dir]==internal);
+  
+  const bool haveAxisLeft = axis->axisLeft;
+  const bool haveAxisRight = axis->axisRight;
 
   // nothing to reconstruct in that direction!
   if((!reconstructLeft) && (!reconstructRight)) {
@@ -464,31 +467,36 @@ void Boundary<Phys>::ReconstructNormalField(int dir) {
   if(dir==JDIR) {
     nstart = data->beg[JDIR]-1;
     nend = data->end[JDIR];
-    if(!this->haveAxis) {
-      idefix_for("ReconstructBX2s",0,data->np_tot[KDIR],0,data->np_tot[IDIR],
-        KOKKOS_LAMBDA (int k, int i) {
-          if(reconstructLeft) {
-            for(int j = nstart ; j>=0 ; j-- ) {
-              Vs(BX2s,k,j,i) = 1.0 / Ax2(k,j,i) * ( Ax2(k,j+1,i)*Vs(BX2s,k,j+1,i)
-                      +(D_EXPAND( Ax1(k,j,i+1) * Vs(BX1s,k,j,i+1) - Ax1(k,j,i) * Vs(BX1s,k,j,i)  ,
-                                                                                                ,
-                            + Ax3(k+1,j,i) * Vs(BX3s,k+1,j,i) - Ax3(k,j,i) * Vs(BX3s,k,j,i) )));
-            }
-          }
-          if(reconstructRight) {
-            for(int j = nend ; j<nx2 ; j++ ) {
-              Vs(BX2s,k,j+1,i) = 1.0 / Ax2(k,j+1,i) * ( Ax2(k,j,i)*Vs(BX2s,k,j,i)
-                       -(D_EXPAND( Ax1(k,j,i+1) * Vs(BX1s,k,j,i+1) - Ax1(k,j,i) * Vs(BX1s,k,j,i)  ,
-                                                                                                ,
-                            + Ax3(k+1,j,i) * Vs(BX3s,k+1,j,i) - Ax3(k,j,i) * Vs(BX3s,k,j,i) )));
-            }
-          }
-        }
-      );
-    } else {
+    if (this->haveAxis) {
       // We have an axis, ask myAxis to do that job for us
       axis->ReconstructBx2s();
     }
+    // else {
+    if(reconstructLeft && !haveAxisLeft) {
+      idefix_for("ReconstructBX2sLeft",0,data->np_tot[KDIR],0,data->np_tot[IDIR],
+        KOKKOS_LAMBDA (int k, int i) {
+          for(int j = nstart ; j>=0 ; j-- ) {
+            Vs(BX2s,k,j,i) = 1.0 / Ax2(k,j,i) * ( Ax2(k,j+1,i)*Vs(BX2s,k,j+1,i)
+                    +(D_EXPAND( Ax1(k,j,i+1) * Vs(BX1s,k,j,i+1) - Ax1(k,j,i) * Vs(BX1s,k,j,i)  ,
+                                                                                              ,
+                          + Ax3(k+1,j,i) * Vs(BX3s,k+1,j,i) - Ax3(k,j,i) * Vs(BX3s,k,j,i) )));
+          }
+        }
+      );
+    }
+    if(reconstructRight && !haveAxisRight) {
+      idefix_for("ReconstructBX2sRight",0,data->np_tot[KDIR],0,data->np_tot[IDIR],
+        KOKKOS_LAMBDA (int k, int i) {
+          for(int j = nend ; j<nx2 ; j++ ) {
+            Vs(BX2s,k,j+1,i) = 1.0 / Ax2(k,j+1,i) * ( Ax2(k,j,i)*Vs(BX2s,k,j,i)
+                      -(D_EXPAND( Ax1(k,j,i+1) * Vs(BX1s,k,j,i+1) - Ax1(k,j,i) * Vs(BX1s,k,j,i)  ,
+                                                                                              ,
+                          + Ax3(k+1,j,i) * Vs(BX3s,k+1,j,i) - Ax3(k,j,i) * Vs(BX3s,k,j,i) )));
+          }
+        }
+      );
+    } 
+  // }
   }
 #endif
 
@@ -686,7 +694,7 @@ void Boundary<Phys>::EnforceReflective(int dir, BoundarySide side ) {
           const int jref = (dir==JDIR) ? 2*(jghost + side*nxj) - j - 1 : j;
           const int kref = (dir==KDIR) ? 2*(kghost + side*nxk) - k - 1 : k;
 
-          const int sign = (n == VX1+dir) ? -1.0 : 1.0;
+          const int sign = (n == VX1+dir || (n >= BX1 && n != BX1+dir)) ? -1.0 : 1.0;
 
           Vc(n,k,j,i) = sign * Vc(n,kref,jref,iref);
         });

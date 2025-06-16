@@ -52,6 +52,9 @@ void Axis::SymmetrizeEx1Side(int jref) {
     idefix_for("Ex1_Store",0,data->np_tot[KDIR],0,data->np_tot[IDIR],
     KOKKOS_LAMBDA(int k,int i) {
       Ex1(k,jref,i) = Ex1Avg(i)/((real) ncells);
+      // if (k==0 && i<5 && i>=2) {
+      //   idfx::cout << "Ex1(0,"<<jref<<","<<i<<") = " << Ex1(k,jref,i) << std::endl;
+      // }
     });
   } else {
     // if we're not doing full two pi, the flow is symmetric with respect to the axis, and the axis
@@ -74,10 +77,10 @@ void Axis::SymmetrizeEx1Side(int jref) {
 void Axis::RegularizeEx3side(int jref) {
   IdefixArray3D<real> Ex3 = this->ez;
 
-  idefix_for("Ex3_Regularise",0,data->np_tot[KDIR],0,data->np_tot[IDIR],
-    KOKKOS_LAMBDA(int k,int i) {
-      Ex3(k,jref,i) = 0.0;
-    });
+  // idefix_for("Ex3_Regularise",0,data->np_tot[KDIR],0,data->np_tot[IDIR],
+  //   KOKKOS_LAMBDA(int k,int i) {
+  //     Ex3(k,jref,i) = 0.0;
+  //   });
 }
 
 
@@ -133,8 +136,21 @@ void Axis::RegularizeCurrentSide(int side) {
     idefix_for("fixJ",0,data->np_tot[KDIR],0,data->np_tot[IDIR],
         KOKKOS_LAMBDA(int k,int i) {
           real th = x2(jc);
-          real fact = sign*sin(th)/(deltaPhi*x1(i)*(1-cos(th)));
+          // real fact = sign*sin(th)/(deltaPhi*x1(i)*(1-cos(th)));
+          real fact = 4.*sign*sin(th)/(deltaPhi*x1(i)*(1-cos(2*th)));
           J(IDIR, k,js,i) = BAvg(i)*fact;
+          // if (k==0 && i==2) {
+          //   idfx::cout << "============" << std::endl;
+          //   idfx::cout << "BAvg("<<i<<") = " << BAvg(i) << std::endl;
+          //   idfx::cout << "th = " << th << std::endl;
+          //   idfx::cout << "sin(th) = " << sin(th) << std::endl;
+          //   idfx::cout << "1-cos(th) = " << 1-cos(th) << std::endl;
+          //   idfx::cout << "deltaPhi = " << deltaPhi << std::endl;
+          //   idfx::cout << "dx3 = " << dx3(k) << std::endl;
+          //   idfx::cout << "x1("<<i<<") = " << x1(i) << std::endl;
+          //   idfx::cout << "factor("<<i<<") = " << fact << std::endl;
+          //   idfx::cout << "J(IDIR, 0,"<<js<<","<<i<<") = " << J(IDIR, k,js,i) << std::endl;
+          // }
         });
 
   #endif // DIMENSIONS
