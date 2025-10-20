@@ -269,6 +269,7 @@ void TimeIntegrator::Cycle(DataBlock &data) {
 
 #ifdef WITH_MPI
   MPI_Request dtReduce;
+  MPI_Request dt_hydroReduce;
 #endif
 
   /////////////////////////////////////////////////
@@ -320,6 +321,8 @@ void TimeIntegrator::Cycle(DataBlock &data) {
           if(idfx::psize>1) {
             MPI_SAFE_CALL(MPI_Iallreduce(MPI_IN_PLACE, &newdt, 1, realMPI, MPI_MIN, MPI_COMM_WORLD,
                                         &dtReduce));
+            MPI_SAFE_CALL(MPI_Iallreduce(MPI_IN_PLACE, &newdt_hydro, 1, realMPI, MPI_MIN, MPI_COMM_WORLD,
+                                        &dt_hydroReduce));
           }
         #endif
       }
@@ -359,6 +362,7 @@ void TimeIntegrator::Cycle(DataBlock &data) {
 #ifdef WITH_MPI
   if(!haveFixedDt && idfx::psize>1) {
     MPI_SAFE_CALL(MPI_Wait(&dtReduce, MPI_STATUS_IGNORE));
+    MPI_SAFE_CALL(MPI_Wait(&dt_hydroReduce, MPI_STATUS_IGNORE));
   }
 #endif
 
