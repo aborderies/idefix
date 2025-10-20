@@ -286,10 +286,6 @@ void Fluid<Phys>::AddNonIdealMHDFlux(const real t) {
           }
         }
         dMax(k,j,i) = FMAX(dMax(k,j,i),locdmax);
-        // if (dMax(k,j,i) == 0.0) {
-          // idfx::cout << "locdmax is zero at k=" << k << " j=" << j << " i=" << i << std::endl;
-          // idfx::cout << "locdmax =" << locdmax << " dMax=" << dMax(k,j,i) << std::endl;
-        // }
       }
     );
   }

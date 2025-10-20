@@ -851,7 +851,7 @@ void RKLegendre<Phys>::CalcParabolicRHS(real t) {
   } // dir==IDIR
   if(dir==JDIR) {
     #if (GEOMETRY == SPHERICAL) && (COMPONENTS == 3)
-     if(nv == iMPHI) {
+      if(nv == iMPHI) {
         rhs /= FABS(s(j));
       }
       real dx_ = dx(j);
