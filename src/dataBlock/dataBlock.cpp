@@ -155,6 +155,7 @@ DataBlock::DataBlock(Grid &grid, Input &input) {
   // Register variables that need to be saved in case of restart dump
   dump->RegisterVariable(&t, "time");
   dump->RegisterVariable(&dt, "dt");
+  dump->RegisterVariable(&dt_hydro, "dt_hydro");
 
   idfx::popRegion();
 }
@@ -361,6 +362,24 @@ real DataBlock::ComputeTimestep() {
   }
   Kokkos::fence();
   return(dt);
+}
+
+real DataBlock::ComputeTimestep_hydro() {
+  // Compute the timestep using all of the enabled modules in the current dataBlock
+
+  // First with the hydro block
+  auto InvDt_hydro = hydro->InvDt_hydro;
+  real dt_hydro;
+  idefix_reduce("Timestep_reduction",
+          beg[KDIR], end[KDIR],
+          beg[JDIR], end[JDIR],
+          beg[IDIR], end[IDIR],
+          KOKKOS_LAMBDA (int k, int j, int i, real &dtmin) {
+                  dtmin=FMIN(ONE_F/InvDt_hydro(k,j,i),dtmin);
+              },
+          Kokkos::Min<real>(dt_hydro));
+  Kokkos::fence();
+  return(dt_hydro);
 }
 
 // Recompute magnetic fields from vector potential in dedicated fluids

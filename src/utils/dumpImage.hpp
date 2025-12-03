@@ -23,6 +23,7 @@ class DumpImage {
   int geometry;                // geometry of the dump
   real time;                   // time at which the dump was created
   real centralMass;            // central mass when dump was created
+  real centralMoment;          // central moment when dump was created
   std::array<IdefixHostArray1D<real>,3> x;    // geometrical central points
   std::array<IdefixHostArray1D<real>,3> xr;   // cell right interface
   std::array<IdefixHostArray1D<real>,3> xl;   // cell left interface

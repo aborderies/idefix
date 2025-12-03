@@ -119,10 +119,12 @@ void Fluid<Phys>::ResetStage() {
   idfx::pushRegion("Fluid::ResetStage");
 
   IdefixArray3D<real> InvDt=this->InvDt;
+  IdefixArray3D<real> InvDt_hydro=this->InvDt_hydro;
 
   idefix_for("HydroResetStage",0,data->np_tot[KDIR],0,data->np_tot[JDIR],0,data->np_tot[IDIR],
     KOKKOS_LAMBDA (int k, int j, int i) {
       InvDt(k,j,i) = ZERO_F;
+      InvDt_hydro(k,j,i) = ZERO_F;
   });
 
   idfx::popRegion();

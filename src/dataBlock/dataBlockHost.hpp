@@ -50,7 +50,8 @@ class DataBlockHost {
   #endif
   IdefixHostArray4D<real> Uc;     ///< Main cell-centered conservative variables
   IdefixHostArray3D<real> InvDt;  ///< Inverse of maximum timestep in each cell
-
+  IdefixHostArray3D<real> selfPotential;  ///< Self gravitational potential
+  
   std::array<IdefixHostArray2D<int>,3> coarseningLevel; ///< Grid coarsening level
                                                      ///< (only defined when coarsening
                                                      ///< is enabled)
@@ -65,6 +66,8 @@ class DataBlockHost {
   std::array<int,3> np_int;                  ///< internal number of grid points
 
   std::array<int,3> nghost;                  ///< number of ghost cells
+
+  std::array<int,3> loffset;                 ///< offset in the left direction between selfgravity grid and datablock grid
 
   std::array<BoundaryType,3> lbound;           ///< Boundary condition to the left
   std::array<BoundaryType,3> rbound;           ///< Boundary condition to the right

@@ -104,6 +104,7 @@ class DataBlock {
   std::array<int,3> gend;      ///< Last global index of the active domain of this datablock
 
   real dt;                     ///< Current timestep
+  real dt_hydro;               ///< Current hydro timestep
   real t;                      ///< Current time
 
   Grid *mygrid;                ///< Parent grid object
@@ -148,6 +149,7 @@ class DataBlock {
   void Coarsen();             ///< Coarsen this datablock and its objects
   void ShowConfig();              ///< Show the datablock's configuration
   real ComputeTimestep();         ///< compute maximum timestep from current state of affairs
+  real ComputeTimestep_hydro();         ///< same for hydro time step
 
   void ResetStage();              ///< Reset the variables needed at each major integration Stage
 

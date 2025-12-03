@@ -181,6 +181,7 @@ class Fluid {
 
   // Required by time integrator
   IdefixArray3D<real> InvDt;
+  IdefixArray3D<real> InvDt_hydro; // Only the hydro part without resistivity
 
   IdefixArray4D<real> FluxRiemann;
   IdefixArray3D<real> dMax;    // Maximum diffusion speed
@@ -188,6 +189,12 @@ class Fluid {
   std::unique_ptr<RiemannSolver<Phys>> rSolver;
 
   DataBlock *data;
+
+  // Nonideal effect diffusion coefficient (only allocated when needed)
+  // Moved to public to save in VTK
+  IdefixArray3D<real> etaOhmic;
+  IdefixArray3D<real> xHall;
+  IdefixArray3D<real> xAmbipolar;
 
   // Data related to current instance of the Fluid object
   std::string prefix;
@@ -236,10 +243,6 @@ class Fluid {
 
   IdefixArray3D<real> cMax;    // Maximum propagation speed
 
-  // Nonideal effect diffusion coefficient (only allocated when needed)
-  IdefixArray3D<real> etaOhmic;
-  IdefixArray3D<real> xHall;
-  IdefixArray3D<real> xAmbipolar;
 
   // Loop on dimensions
   template <int dir>
@@ -534,6 +537,8 @@ Fluid<Phys>::Fluid(Grid &grid, Input &input, DataBlock *datain, int n) {
   data->states["current"].PushArray(Uc, State::center, prefix+"_Uc");
 
   InvDt = IdefixArray3D<real>(prefix+"_InvDt",
+                              data->np_tot[KDIR], data->np_tot[JDIR], data->np_tot[IDIR]);
+  InvDt_hydro = IdefixArray3D<real>(prefix+"_InvDt_hydro",
                               data->np_tot[KDIR], data->np_tot[JDIR], data->np_tot[IDIR]);
   cMax = IdefixArray3D<real>(prefix+"_cMax",
                               data->np_tot[KDIR], data->np_tot[JDIR], data->np_tot[IDIR]);

@@ -31,6 +31,9 @@ DataBlockHost::DataBlockHost(DataBlock& datain) {
   np_tot = data->np_tot;
   np_int = data->np_int;
   np_tot = data->np_tot;
+  if (data->gravity->haveSelfGravityPotential) {
+    loffset = data->gravity->selfGravity.laplacian->loffset;
+  }
 
   nghost = data->nghost;
 
@@ -51,6 +54,9 @@ DataBlockHost::DataBlockHost(DataBlock& datain) {
   Vc = Kokkos::create_mirror_view(data->hydro->Vc);
   Uc = Kokkos::create_mirror_view(data->hydro->Uc);
   InvDt = Kokkos::create_mirror_view(data->hydro->InvDt);
+  if (data->gravity->haveSelfGravityPotential) {
+    selfPotential = Kokkos::create_mirror_view(data->gravity->selfGravity.potential);
+  }
 
 #if MHD == YES
   Vs = Kokkos::create_mirror_view(data->hydro->Vs);
@@ -112,6 +118,10 @@ void DataBlockHost::SyncToDevice() {
   data->dt = this->dt;
   Kokkos::deep_copy(data->hydro->Vc,Vc);
   Kokkos::deep_copy(data->hydro->InvDt,InvDt);
+  if (data->gravity->haveSelfGravityPotential) {
+    Kokkos::deep_copy(data->gravity->selfGravity.potential,selfPotential);
+  }
+  Kokkos::deep_copy(data->gravity->selfGravity.potential,selfPotential);
 
 #if MHD == YES
   Kokkos::deep_copy(data->hydro->Vs,Vs);
@@ -151,6 +161,9 @@ void DataBlockHost::SyncFromDevice() {
 
   Kokkos::deep_copy(Vc,data->hydro->Vc);
   Kokkos::deep_copy(InvDt,data->hydro->InvDt);
+  if (data->gravity->haveSelfGravityPotential) {
+    Kokkos::deep_copy(selfPotential,data->gravity->selfGravity.potential);
+  }
 
 #if MHD == YES
   Kokkos::deep_copy(Vs,data->hydro->Vs);

@@ -90,6 +90,7 @@ int Bicgstab<T>::Solve(IdefixArray3D<real> &guess, IdefixArray3D<real> &rhs) {
       this->rho = 1.0;
       this->alpha = 1.0;
       this->omega = 1.0;
+      idfx::cout << "Bicgstab:: Step reached before restart : " << n << std::endl;
       n = -1;
       idfx::popRegion();
       return(n);
@@ -133,7 +134,7 @@ void Bicgstab<T>::PerformIter() {
   IdefixArray3D<real> solution = this->solution;
   IdefixArray3D<real> res = this->res;
   IdefixArray3D<real> dir = this->dir;
-  IdefixArray3D<real> res0 = this->res0; // Reference residual, do not evolve through the loop
+  IdefixArray3D<real> res0 = this->res0; // Reference residual, do not evolve through the loop, unless restart
 
   // The following variables are named following wikipedia's page nomenclature of BICGSTAB algorithm
   IdefixArray3D<real> v = this->work1; // Working array, for laplacian dir calculation
@@ -166,6 +167,9 @@ void Bicgstab<T>::PerformIter() {
     return;
     // IDEFIX_ERROR("rho is nan in step 1");
   }
+  if(rho == 0.0) {
+    idfx::cout << "Bicgstab:: rho is equal to 0.0 in step 1." << std::endl;
+  }
 
   // ***** Step 2.
   real beta = rho / rhoOld * alpha / omegaOld;
@@ -183,10 +187,21 @@ void Bicgstab<T>::PerformIter() {
   }
 
   // ***** Step 3.
+  if(rho == 0) {
+    idfx::cout << "Bicgstab:: rho is equal to 0 in step 3. Restart dir and res0." << std::endl;
+    idefix_for("ResetDir", kbeg, kend, jbeg, jend, ibeg, iend,
+      KOKKOS_LAMBDA (int k, int j, int i) {
+      dir(k,j,i) = res(k,j,i);
+      res0(k,j,i) = res(k,j,i);
+    });
+    rho = this->ComputeDotProduct(res0, res);
+  }
+  else {
   idefix_for("UpdateDir", kbeg, kend, jbeg, jend, ibeg, iend,
     KOKKOS_LAMBDA (int k, int j, int i) {
       dir(k,j,i) = res(k,j,i) + beta * (dir(k,j,i) - omegaOld * v(k,j,i));
     });
+  }
 
   // From now dir is updated
 
@@ -205,6 +220,7 @@ void Bicgstab<T>::PerformIter() {
   // Checking Nans
   if(std::isnan(alpha)) {
     idfx::cout << "Bicgstab:: alpha is nan in step 5." << std::endl;
+    idfx::cout << "dot(res0,v)= " << this->ComputeDotProduct(res0,v) << std::endl;
     // IDEFIX_ERROR("alpha is nan in step 5");
     this->restart = true;
     idfx::popRegion();
@@ -255,6 +271,7 @@ void Bicgstab<T>::PerformIter() {
     // Checking Nans
     if(std::isnan(omega)) {
       idfx::cout << "Bicgstab:: omega is nan in step 10." << std::endl;
+      idfx::cout << "dot(s,t)= " << this->ComputeDotProduct(s,t) << " dot(t,t)= " << this->ComputeDotProduct(t, t) << std::endl;
       // IDEFIX_ERROR("omega is nan in step 10");
       this->restart = true;
       idfx::popRegion();
