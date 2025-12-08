@@ -34,6 +34,8 @@ class Exchanger {
   void Exchange(IdefixArray4D<real> Vc, IdefixArray4D<real> Vs);
   ~Exchanger();
 
+  static int nInstances;     // total number of mpi instances in the code
+  int thisInstance;          // unique number of the current instance
   bool isInitialized{false};
 
   // MPI throughput timer specific to this object
@@ -41,7 +43,8 @@ class Exchanger {
   int64_t bytesSentOrReceived{0};
 
   // Buffer sizes for throughput calculations
-  int bufferSize[2];
+  std::array<int,2> bufferSizeSend;
+  std::array<int,2> bufferSizeRecv;
 
  private:
   enum {faceRight, faceLeft};

@@ -12,6 +12,11 @@
 #include "grid.hpp"
 #include "arrays.hpp"
 
+//#define MPI_NON_BLOCKING
+#define MPI_PERSISTENT
+
+int Exchanger::nInstances = 0;
+
 void Exchanger::Init(
               Grid *grid,
               int direction,
@@ -26,6 +31,9 @@ void Exchanger::Init(
   this->mapVars = idfx::ConvertVectorToIdefixArray(inputMap);
   this->mapNVars = inputMap.size();
   this->haveVs = inputHaveVs;
+
+  // increase the number of instances
+  this->thisInstance = nInstances;
 
   // Compute indices of arrays we will be working with
   for(int dir = 0 ; dir < 3 ; dir++) {
@@ -52,7 +60,7 @@ void Exchanger::Init(
     } else {
       // dir == direction
       boxRecv[faceLeft][dir][0] = 0;
-      boxRecv[faceLeft][dir][1] = nghost[IDIR];
+      boxRecv[faceLeft][dir][1] = nghost[dir];
     }
   }
   // Copy all the boxes from boxRecvLeft
@@ -94,20 +102,22 @@ void Exchanger::Init(
 
   // Compute buffer sizes
   for(int face=0 ; face < 2 ; face++) {
-    bufferSize[face] = mapNVars * Buffer::ComputeBoxSize(boxSend[face]);
+    bufferSizeSend[face] = mapNVars * Buffer::ComputeBoxSize(boxSend[face]);
+    bufferSizeRecv[face] = mapNVars * Buffer::ComputeBoxSize(boxRecv[face]);
     if(haveVs) {
       for(int component = 0 ; component <DIMENSIONS ; component++) {
-        bufferSize[face] += Buffer::ComputeBoxSize( boxSendVs[component][face] );
+        bufferSizeSend[face] += Buffer::ComputeBoxSize( boxSendVs[component][face] );
+        bufferSizeRecv[face] += Buffer::ComputeBoxSize( boxRecvVs[component][face] );
       }
     }
   }
 
   // allocate buffers
-  BufferSend[faceLeft] = Buffer(bufferSize[faceLeft]);
-  BufferRecv[faceRight] = Buffer(bufferSize[faceLeft]);
+  BufferSend[faceLeft] = Buffer(bufferSizeSend[faceLeft]);
+  BufferRecv[faceRight] = Buffer(bufferSizeRecv[faceRight]);
 
-  BufferSend[faceRight] = Buffer(bufferSize[faceRight]);
-  BufferRecv[faceLeft] = Buffer(bufferSize[faceRight]);
+  BufferSend[faceRight] = Buffer(bufferSizeSend[faceRight]);
+  BufferRecv[faceLeft] = Buffer(bufferSizeRecv[faceLeft]);
 
   // Compute directions
   MPI_Cart_shift(grid->CartComm,direction,1,&procRecv[faceLeft],&procSend[faceRight]);
@@ -118,29 +128,30 @@ void Exchanger::Init(
   // X1-dir exchanges
   // We receive from procRecv, and we send to procSend
 
-  MPI_Send_init(BufferSend[faceRight].data(), bufferSize[faceRight], realMPI,
-            procSend[faceRight], thisInstance*100+10*direction,
+  MPI_Send_init(BufferSend[faceRight].data(), bufferSizeSend[faceRight], realMPI,
+            procSend[faceRight], thisInstance*2,
             grid->CartComm, &sendRequest[faceRight]);
 
-  MPI_Recv_init(BufferRecv[faceLeft].data(), bufferSize[faceRight], realMPI,
-            procRecv[faceLeft],thisInstance*100+10*direction,
+  MPI_Recv_init(BufferRecv[faceLeft].data(), bufferSizeRecv[faceLeft], realMPI,
+            procRecv[faceLeft],thisInstance*2,
             grid->CartComm, &recvRequest[faceLeft]);
 
   // Send to the left
   // We receive from procRecv, and we send to procSend
 
-  MPI_Send_init(BufferSend[faceLeft].data(), bufferSize[faceLeft], realMPI,
-            procSend[faceLeft],thisInstance*100+10*direction+1,
+  MPI_Send_init(BufferSend[faceLeft].data(), bufferSizeSend[faceLeft], realMPI,
+            procSend[faceLeft],thisInstance*2+1,
             grid->CartComm, &sendRequest[faceLeft]);
 
-  MPI_Recv_init(BufferRecvX1[faceRight].data(), bufferSizeX1[faceLeft], realMPI,
-            procRecv[faceRight], thisInstance*100+10*direction+1,
+  MPI_Recv_init(BufferRecv[faceRight].data(), bufferSizeRecv[faceRight], realMPI,
+            procRecv[faceRight], thisInstance*2+1,
             grid->CartComm, &recvRequest[faceRight]);
 
   #endif // MPI_PERSISTENT
 
   // say this instance is initialized.
   isInitialized = true;
+  nInstances++;
 
   idfx::popRegion();
 }
@@ -163,7 +174,6 @@ Exchanger::~Exchanger() {
 void Exchanger::Exchange(IdefixArray4D<real> Vc, IdefixArray4D<real> Vs) {
   idfx::pushRegion("Mpi::ExchangeX1");
   // Load  the buffers with data
-  int ibeg,iend,jbeg,jend,kbeg,kend,offset,nx;
   Buffer BufferLeft = BufferSend[faceLeft];
   Buffer BufferRight = BufferSend[faceRight];
   IdefixArray1D<int> map = this->mapVars;
@@ -178,7 +188,7 @@ void Exchanger::Exchange(IdefixArray4D<real> Vc, IdefixArray4D<real> Vs) {
   MPI_Status sendStatus[2];
   MPI_Status recvStatus[2];
 
-  MPI_Startall(2, recvRequestX1);
+  MPI_Startall(2, recvRequest);
   idfx::mpiCallsTimer += MPI_Wtime() - tStart;
 #endif
   myTimer += MPI_Wtime();
@@ -215,20 +225,19 @@ void Exchanger::Exchange(IdefixArray4D<real> Vc, IdefixArray4D<real> Vs) {
 
   // We receive from procRecv, and we send to procSend
 
-  MPI_Isend(BufferSendX1[faceRight].data(), bufferSizeX1[faceRight], realMPI,
-            procSendX1[faceRight], 100, mygrid->CartComm, &sendRequest[0]);
+  MPI_Isend(BufferSend[faceRight].data(), bufferSizeSend[faceRight], realMPI,
+            procSend[faceRight], 100, mygrid->CartComm, &sendRequest[0]);
 
-  MPI_Irecv(BufferRecvX1[faceLeft].data(), bufferSizeX1[faceRight], realMPI,
-            procRecvX1[faceLeft], 100, mygrid->CartComm, &recvRequest[0]);
-
+  MPI_Irecv(BufferRecv[faceLeft].data(), bufferSizeRecv[faceLeft], realMPI,
+            procRecv[faceLeft], 100, mygrid->CartComm, &recvRequest[0]);
   // Send to the left
   // We receive from procRecv, and we send to procSend
 
-  MPI_Isend(BufferSendX1[faceLeft].data(), bufferSizeX1[faceLeft], realMPI,
-            procSendX1[faceLeft], 101, mygrid->CartComm, &sendRequest[1]);
+  MPI_Isend(BufferSend[faceLeft].data(), bufferSizeSend[faceLeft], realMPI,
+            procSend[faceLeft], 101, mygrid->CartComm, &sendRequest[1]);
 
-  MPI_Irecv(BufferRecvX1[faceRight].data(), bufferSizeX1[faceLeft], realMPI,
-            procRecvX1[faceRight], 101, mygrid->CartComm, &recvRequest[1]);
+  MPI_Irecv(BufferRecv[faceRight].data(), bufferSizeRecv[faceRight], realMPI,
+            procRecv[faceRight], 101, mygrid->CartComm, &recvRequest[1]);
 
   // Wait for recv to complete (we don't care about the sends)
   MPI_Waitall(2, recvRequest, recvStatus);
@@ -238,18 +247,18 @@ void Exchanger::Exchange(IdefixArray4D<real> Vc, IdefixArray4D<real> Vs) {
   // Send to the right
   // We receive from procRecv, and we send to procSend
 
-  MPI_Sendrecv(BufferSend[faceRight].data(), bufferSize[faceRight], realMPI,
+  MPI_Sendrecv(BufferSend[faceRight].data(), bufferSizeSend[faceRight], realMPI,
                 procSend[faceRight], 100,
-                BufferRecv[faceLeft].data(), bufferSize[faceRight], realMPI,
+                BufferRecv[faceLeft].data(), bufferSizeRecv[faceLeft], realMPI,
                 procRecv[faceLeft], 100,
                 grid->CartComm, &status);
 
   // Send to the left
   // We receive from procRecv, and we send to procSend
 
-  MPI_Sendrecv(BufferSend[faceLeft].data(), bufferSize[faceLeft], realMPI,
+  MPI_Sendrecv(BufferSend[faceLeft].data(), bufferSizeSend[faceLeft], realMPI,
                 procSend[faceLeft], 101,
-                BufferRecv[faceRight].data(), bufferSize[faceLeft], realMPI,
+                BufferRecv[faceRight].data(), bufferSizeRecv[faceRight], realMPI,
                 procRecv[faceRight], 101,
                 grid->CartComm, &status);
   #endif
@@ -289,7 +298,10 @@ myTimer -= MPI_Wtime();
   MPI_Waitall(2, sendRequest, sendStatus);
 #endif
   myTimer += MPI_Wtime();
-  bytesSentOrReceived += 2*(bufferSize[faceLeft]+bufferSize[faceRight])*sizeof(real);
+  bytesSentOrReceived += (bufferSizeRecv[faceLeft]
+                          +bufferSizeSend[faceLeft]
+                          +bufferSizeRecv[faceRight]
+                          +bufferSizeSend[faceRight])*sizeof(real);
 
   idfx::popRegion();
 }
