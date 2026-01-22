@@ -386,6 +386,7 @@ real DataBlock::ComputeTimestep_hydro() {
 void DataBlock::DeriveVectorPotential() {
   if constexpr(DefaultPhysics::mhd) {
     #ifdef EVOLVE_VECTOR_POTENTIAL
+      hydro->emf->EnforceVectorPotentialBoundary(hydro->Ve);
       hydro->emf->ComputeMagFieldFromA(hydro->Ve, hydro->Vs);
     #endif
   }
